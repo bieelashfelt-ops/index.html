@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>VN Studio 0.4 - Editor de Cena</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#0b1220;--panel:#1e293b;--panel2:#111827;--line:#3b4a61;--purple:#7c3aed;--purple2:#9333ea;--text:#f8fafc;--muted:#a5b4fc}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+button{border:0;border-radius:10px;padding:11px 14px;background:var(--purple);color:#fff;font-weight:700;cursor:pointer}
+button.secondary{background:#334155}
+button.danger{background:#b91c1c}
+input,textarea,select{width:100%;padding:11px;border:1px solid #475569;border-radius:9px;background:#0b1220;color:#fff;margin-top:6px}
+textarea{min-height:100px;resize:vertical}
+header{padding:10px 14px;background:#111827;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:5}
+.logo{font-size:20px;font-weight:800}.sub{color:#a5b4fc;font-size:13px;font-weight:700}.top{display:flex;gap:8px;flex-wrap:wrap}
+main{display:grid;grid-template-columns:220px minmax(0,1fr) 290px;min-height:calc(100vh - 65px)}
+.panel{background:var(--panel);padding:14px;overflow:auto}
+.center{padding:14px;min-width:0}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+h2,h3{margin:4px 0 12px}.muted{color:#94a3b8;font-size:13px}
+.scene{padding:12px;border:1px solid var(--line);border-radius:10px;background:#182235;margin-bottom:8px;cursor:pointer}
+.scene.active{background:#6d28d9;border-color:#c4b5fd}
+.stage{position:relative;width:100%;aspect-ratio:16/9;min-height:280px;background:#020617 center/cover no-repeat;border-radius:14px;overflow:hidden;border:1px solid #475569}
+.stage .char{position:absolute;bottom:0;max-height:82%;max-width:38%;object-fit:contain;transform:translateX(-50%);pointer-events:none}
+.stage .left{left:22%}.stage .centerPos{left:50%}.stage .right{left:78%}
+.dialogBox{position:absolute;left:4%;right:4%;bottom:4%;padding:14px 16px;border-radius:12px;background:rgba(0,0,0,.8);z-index:2}
+.dialogBox b{color:#c4b5fd}
+.toolGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.file{background:#334155;padding:11px;border-radius:9px;text-align:center;cursor:pointer;font-weight:700}.file input{display:none}
+.item{padding:11px;border-radius:9px;background:#111827;border:1px solid var(--line);margin-bottom:8px}
+.item.active{border-color:#a78bfa}
+.timeline{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px}
+.timeline .item{min-width:180px;margin:0}
+.small{font-size:12px;color:#94a3b8}
+hr{border:0;border-top:1px solid var(--line);margin:14px 0}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#312e81;color:#ddd6fe;font-size:11px;font-weight:700}
+.empty{text-align:center;padding:22px;color:#94a3b8}
+@media(max-width:900px){
+ header{position:relative;align-items:flex-start}
+ .logo{max-width:45%}.top{max-width:55%;justify-content:flex-end}
+ main{grid-template-columns:1fr}
+ .panel{overflow:visible}
+ .stage{min-height:210px}
+}
+@media(max-width:520px){
+ header{flex-direction:column}
+ .logo,.top{max-width:100%;width:100%}
+ .top button{flex:1}
+ .toolGrid{grid-template-columns:1fr}
+ .stage{min-height:190px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🎬 VN Studio <span class="sub">0.4 • Editor de Cena</span></div>
+  <div class="top">
+    <button onclick="newProject()">Novo</button>
+    <button onclick="saveProject()">Salvar</button>
+    <button onclick="testProject()">▶ Testar</button>
+  </div>
+</header>
+
+<main>
+<aside class="panel">
+  <h3>Projeto</h3>
+  <label>Nome do projeto</label>
+  <input id="projectName" oninput="project.name=this.value">
+  <hr>
+  <h3>Cenas</h3>
+  <button style="width:100%" onclick="addScene()">+ Nova cena</button>
+  <div id="sceneList" style="margin-top:10px"></div>
+</aside>
+
+<section class="center">
+  <div class="card">
+    <h2 id="sceneTitle">Cena 1</h2>
+    <div class="muted">Monte cada parte da cena. O programa organiza o seu trabalho; a história continua sendo sua.</div>
+  </div>
+
+  <div id="stage" class="stage"></div>
+
+  <div class="card">
+    <h3>Ferramentas</h3>
+    <div class="toolGrid">
+      <label class="file">🖼️ Adicionar fundo
+        <input type="file" accept="image/*" onchange="loadBackground(this)">
+      </label>
+      <label class="file">👤 Adicionar personagem
+        <input type="file" accept="image/*" onchange="loadCharacter(this)">
+      </label>
+      <button onclick="addDialogue()">💬 Adicionar diálogo</button>
+      <button class="secondary" onclick="clearBackground()">Limpar fundo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Linha da cena</h3>
+    <div id="timeline" class="timeline"></div>
+    <div class="small">A sequência mostra os elementos que você colocou nesta cena.</div>
+  </div>
+
+  <div class="card">
+    <h3>Diálogos</h3>
+    <div id="dialogList"></div>
+  </div>
+</section>
+
+<aside class="panel">
+  <h3>Inspector</h3>
+  <div id="inspector"></div>
+</aside>
+</main>
+
+<script>
+const KEY="vn_studio_v04";
+let project={name:"Minha Visual Novel",scenes:[]};
+let currentScene=0;
+
+function blankScene(i){return{title:"Cena "+i,background:"",characters:[],dialogs:[],timeline:[]}}
+function init(){
+ try{const x=localStorage.getItem(KEY);if(x)project=JSON.parse(x)}catch(e){}
+ if(!project.scenes.length)project.scenes=[blankScene(1)];
+ currentScene=Math.min(currentScene,project.scenes.length-1);
+ render();
+}
+function scene(){return project.scenes[currentScene]}
+function saveProject(){
+ project.name=document.getElementById("projectName").value||"Minha Visual Novel";
+ localStorage.setItem(KEY,JSON.stringify(project));
+ alert("Projeto salvo neste celular.");
+}
+function newProject(){
+ if(!confirm("Criar um projeto novo?"))return;
+ project={name:"Minha Visual Novel",scenes:[blankScene(1)]};currentScene=0;render();
+}
+function addScene(){
+ project.scenes.push(blankScene(project.scenes.length+1));currentScene=project.scenes.length-1;render();
+}
+function deleteScene(){
+ if(project.scenes.length===1){alert("O projeto precisa ter pelo menos uma cena.");return}
+ project.scenes.splice(currentScene,1);currentScene=Math.max(0,currentScene-1);render();
+}
+function fileToData(file,cb){if(!file)return;const r=new FileReader();r.onload=()=>cb(r.result);r.readAsDataURL(file)}
+function loadBackground(input){
+ fileToData(input.files[0],data=>{
+  scene().background=data;
+  scene().timeline=scene().timeline.filter(x=>x.type!=="background");
+  scene().timeline.unshift({type:"background",label:"Fundo"});
+  render();
+ });
+ input.value="";
+}
+function clearBackground(){
+ scene().background="";
+ scene().timeline=scene().timeline.filter(x=>x.type!=="background");
+ render();
+}
+function loadCharacter(input){
+ fileToData(input.files[0],data=>{
+  scene().characters.push({src:data,pos:"center",name:"Personagem "+(scene().characters.length+1)});
+  scene().timeline.push({type:"character",index:scene().characters.length-1,label:"Personagem"});
+  render();
+ });
+ input.value="";
+}
+function addDialogue(){
+ const name=prompt("Nome do personagem:");
+ if(name===null)return;
+ const text=prompt("Texto do diálogo:");
+ if(text===null)return;
+ scene().dialogs.push({name:name||"Narrador",text:text});
+ scene().timeline.push({type:"dialog",index:scene().dialogs.length-1,label:(name||"Narrador")+": "+text.slice(0,24)});
+ render();
+}
+function updateTitle(v){scene().title=v;render()}
+function updateCharName(i,v){scene().characters[i].name=v;render()}
+function updateCharPos(i,v){scene().characters[i].pos=v;render()}
+function removeChar(i){
+ scene().characters.splice(i,1);
+ scene().timeline=scene().timeline.filter(x=>!(x.type==="character"&&x.index===i));
+ scene().timeline.forEach(x=>{if(x.type==="character"&&x.index>i)x.index--});
+ render();
+}
+function removeDialog(i){
+ scene().dialogs.splice(i,1);
+ scene().timeline=scene().timeline.filter(x=>!(x.type==="dialog"&&x.index===i));
+ scene().timeline.forEach(x=>{if(x.type==="dialog"&&x.index>i)x.index--});
+ render();
+}
+function esc(x){return String(x||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function render(){
+ document.getElementById("projectName").value=project.name;
+ const s=scene();
+ document.getElementById("sceneTitle").textContent=s.title;
+
+ const list=document.getElementById("sceneList");list.innerHTML="";
+ project.scenes.forEach((x,i)=>{
+  const d=document.createElement("div");d.className="scene"+(i===currentScene?" active":"");
+  d.innerHTML="<b>"+esc(x.title)+"</b><div class='muted'>"+x.dialogs.length+" diálogo(s) • "+x.characters.length+" personagem(ns)</div>";
+  d.onclick=()=>{currentScene=i;render()};list.appendChild(d);
+ });
+
+ const stage=document.getElementById("stage");
+ stage.style.backgroundImage=s.background?'url("'+s.background.replace(/"/g,'%22')+'")':'none';
+ stage.innerHTML="";
+ s.characters.forEach(c=>{
+  const img=document.createElement("img");img.className="char "+(c.pos==="left"?"left":c.pos==="right"?"right":"centerPos");img.src=c.src;stage.appendChild(img);
+ });
+ if(s.dialogs.length){
+  const d=s.dialogs[s.dialogs.length-1],box=document.createElement("div");box.className="dialogBox";
+  box.innerHTML="<b>"+esc(d.name)+"</b><br>"+esc(d.text);stage.appendChild(box);
+ }
+
+ const tl=document.getElementById("timeline");tl.innerHTML="";
+ if(!s.timeline.length)tl.innerHTML="<div class='empty'>A cena ainda está vazia.</div>";
+ s.timeline.forEach((x,i)=>{
+  const el=document.createElement("div");el.className="item";
+  el.innerHTML="<span class='badge'>"+esc(x.type)+"</span><br><b>"+esc(x.label)+"</b><div class='small'>Etapa "+(i+1)+"</div>";
+  tl.appendChild(el);
+ });
+
+ const dl=document.getElementById("dialogList");dl.innerHTML="";
+ if(!s.dialogs.length)dl.innerHTML="<div class='empty'>Nenhum diálogo ainda.</div>";
+ s.dialogs.forEach((d,i)=>{
+  const el=document.createElement("div");el.className="item";
+  el.innerHTML="<label>Personagem</label><input value='"+esc(d.name)+"' onchange='scene().dialogs["+i+"].name=this.value;render()'><label>Texto</label><textarea onchange='scene().dialogs["+i+"].text=this.value;render()'>"+esc(d.text)+"</textarea><button class='danger' onclick='removeDialog("+i+")'>Excluir</button>";
+  dl.appendChild(el);
+ });
+ renderInspector();
+}
+
+function renderInspector(){
+ const s=scene();let h="";
+ h+="<label>Título da cena</label><input value='"+esc(s.title)+"' onchange='updateTitle(this.value)'>";
+ h+="<hr><h3>Personagens</h3>";
+ if(!s.characters.length)h+="<div class='muted'>Nenhum personagem.</div>";
+ s.characters.forEach((c,i)=>{
+  h+="<div class='item'><label>Nome</label><input value='"+esc(c.name)+"' onchange='updateCharName("+i+",this.value)'>";
+  h+="<label>Posição</label><select onchange='updateCharPos("+i+",this.value)'>";
+  h+="<option value='left' "+(c.pos==="left"?"selected":"")+">Esquerda</option>";
+  h+="<option value='center' "+(c.pos==="center"?"selected":"")+">Centro</option>";
+  h+="<option value='right' "+(c.pos==="right"?"selected":"")+">Direita</option>";
+  h+="</select><button class='danger' style='margin-top:8px' onclick='removeChar("+i+")'>Excluir</button></div>";
+ });
+ h+="<hr><div class='muted'>Dica: use imagens próprias ou com licença adequada. Na próxima etapa podemos adicionar expressões, poses e áudio.</div>";
+ document.getElementById("inspector").innerHTML=h;
+}
+
+function testProject(){
+ const data=JSON.stringify(project);
+ const html=`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Teste - ${esc(project.name)}</title><style>
+body{margin:0;background:#000;color:#fff;font-family:Arial}.screen{height:100vh;background:#111 center/cover no-repeat;position:relative}.c{position:absolute;bottom:110px;max-height:70%;max-width:35%;transform:translateX(-50%)}.l{left:22%}.m{left:50%}.r{left:78%}.box{position:absolute;left:4%;right:4%;bottom:20px;background:rgba(0,0,0,.84);padding:18px;border-radius:12px}.hint{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.6);padding:7px;border-radius:8px;font-size:12px}</style></head><body><div id="s" class="screen"><div class="hint">Toque para avançar</div></div><script>
+const p=${data};let si=0,di=0;
+function esc(x){return String(x||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function show(){const sc=p.scenes[si],e=document.getElementById("s");e.style.backgroundImage=sc.background?'url("'+sc.background.replace(/"/g,"%22")+'")':"none";e.innerHTML='<div class="hint">Toque para avançar</div>';sc.characters.forEach(c=>{const im=document.createElement("img");im.src=c.src;im.className="c "+(c.pos==="left"?"l":c.pos==="right"?"r":"m");e.appendChild(im)});if(sc.dialogs[di]){const d=sc.dialogs[di],b=document.createElement("div");b.className="box";b.innerHTML="<b>"+esc(d.name)+"</b><br>"+esc(d.text);e.appendChild(b)}}
+document.getElementById("s").onclick=()=>{const sc=p.scenes[si];if(di<sc.dialogs.length-1){di++;show()}else if(si<p.scenes.length-1){si++;di=0;show()}else alert("Fim do teste.");};show();
+<\/script></body></html>`;
+ const blob=new Blob([html],{type:"text/html"});window.open(URL.createObjectURL(blob),"_blank");
+}
+init();
+</script>
+</body>
+</html>
