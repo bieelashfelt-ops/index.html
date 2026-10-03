@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VN Studio - Criador de Visual Novels</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#111827;color:#f3f4f6}
+button{border:0;border-radius:10px;padding:10px 14px;background:#7c3aed;color:white;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(1.12)}
+header{height:62px;background:#1f2937;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #374151}
+.logo{font-size:20px;font-weight:bold}
+.actions{display:flex;gap:8px}
+main{display:grid;grid-template-columns:230px 1fr 280px;height:calc(100vh - 62px)}
+aside,.inspector{background:#1f2937;padding:14px;overflow:auto}
+.editor{padding:16px;overflow:auto}
+h2,h3{margin-top:0}
+input,textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid #4b5563;background:#111827;color:#fff;margin:6px 0 12px}
+textarea{min-height:90px;resize:vertical}
+.scene{padding:11px;border-radius:9px;background:#374151;margin-bottom:8px;cursor:pointer}
+.scene.active{background:#7c3aed}
+.scene small{display:block;opacity:.75;margin-top:4px}
+.card{background:#1f2937;border:1px solid #374151;border-radius:12px;padding:14px;margin-bottom:14px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.preview{min-height:420px;border-radius:14px;background:#0b1020 center/cover no-repeat;position:relative;overflow:hidden;border:1px solid #374151}
+.previewText{position:absolute;left:5%;right:5%;bottom:20px;background:rgba(0,0,0,.78);padding:18px;border-radius:12px}
+.character{position:absolute;bottom:105px;left:50%;transform:translateX(-50%);max-height:65%;max-width:70%;object-fit:contain}
+.empty{opacity:.65;text-align:center;padding:35px 10px}
+.dialog{background:#111827;border-radius:10px;padding:12px;margin:8px 0}
+.dialog b{color:#c4b5fd}
+@media(max-width:800px){
+main{grid-template-columns:1fr;height:auto}
+aside,.inspector{max-height:none}
+.preview{min-height:360px}
+}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">🎬 VN Studio</div>
+<div class="actions">
+<button onclick="newProject()">Novo</button>
+<button onclick="saveProject()">Salvar</button>
+<button onclick="testProject()">Testar</button>
+</div>
+</header>
+
+<main>
+<aside>
+<h3>Cenas</h3>
+<button onclick="addScene()" style="width:100%;margin-bottom:12px">+ Nova cena</button>
+<div id="sceneList"></div>
+</aside>
+
+<section class="editor">
+<div class="card">
+<label>Nome do projeto</label>
+<input id="projectName" oninput="project.name=this.value">
+</div>
+
+<div class="toolbar">
+<button onclick="setBackground()">Fundo</button>
+<button onclick="addCharacter()">Personagem</button>
+<button onclick="addDialogue()">Diálogo</button>
+<button onclick="deleteScene()">Excluir cena</button>
+</div>
+
+<div id="editorContent"></div>
+</section>
+
+<aside class="inspector">
+<h3>Propriedades</h3>
+<div id="inspectorContent"></div>
+</aside>
+</main>
+
+<script>
+let project={
+ name:"Minha Visual Novel",
+ scenes:[],
+ assets:[]
+};
+let currentScene=0;
+
+function saveProject(){
+ localStorage.setItem("vnStudioProject",JSON.stringify(project));
+ alert("Projeto salvo neste celular!");
+}
+
+function loadProject(){
+ try{
+  const saved=localStorage.getItem("vnStudioProject");
+  if(saved) project=JSON.parse(saved);
+ }catch(e){}
+ if(!project.scenes.length)addScene();
+ document.getElementById("projectName").value=project.name;
+ render();
+}
+
+function newProject(){
+ if(!confirm("Criar um novo projeto?"))return;
+ project={name:"Minha Visual Novel",scenes:[],assets:[]};
+ currentScene=0;
+ addScene();
+}
+
+function addScene(){
+ project.scenes.push({
+  title:"Cena "+(project.scenes.length+1),
+  background:"",
+  characters:[],
+  dialogs:[]
+ });
+ currentScene=project.scenes.length-1;
+ render();
+}
+
+function deleteScene(){
+ if(project.scenes.length<=1){
+  alert("O projeto precisa ter pelo menos uma cena.");
+  return;
+ }
+ project.scenes.splice(currentScene,1);
+ currentScene=Math.max(0,currentScene-1);
+ render();
+}
+
+function setBackground(){
+ const url=prompt("Cole a URL da imagem de fundo:");
+ if(url===null)return;
+ project.scenes[currentScene].background=url.trim();
+ render();
+}
+
+function addCharacter(){
+ const url=prompt("Cole a URL da imagem do personagem:");
+ if(url===null)return;
+ if(url.trim())project.scenes[currentScene].characters.push(url.trim());
+ render();
+}
+
+function addDialogue(){
+ const name=prompt("Nome do personagem:");
+ if(name===null)return;
+ const text=prompt("Fala:");
+ if(text===null)return;
+ project.scenes[currentScene].dialogs.push({name:name,text:text});
+ render();
+}
+
+function updateSceneTitle(value){
+ project.scenes[currentScene].title=value;
+ render();
+}
+
+function removeDialogue(i){
+ project.scenes[currentScene].dialogs.splice(i,1);
+ render();
+}
+
+function removeCharacter(i){
+ project.scenes[currentScene].characters.splice(i,1);
+ render();
+}
+
+function testProject(){
+ const scene=project.scenes[currentScene];
+ let html="<html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Teste</title><style>body{margin:0;background:#111;color:white;font-family:Arial}.screen{height:100vh;background:center/cover no-repeat;position:relative}.char{position:absolute;bottom:130px;left:50%;transform:translateX(-50%);max-height:65%;max-width:75%}.box{position:absolute;bottom:20px;left:5%;right:5%;background:rgba(0,0,0,.82);padding:18px;border-radius:12px}</style></head><body>";
+ html+="<div class='screen' style='background-image:url(\""+esc(scene.background)+"\")'>";
+ if(scene.characters.length)html+="<img class='char' src='"+esc(scene.characters[0])+"'>";
+ if(scene.dialogs.length){
+  const d=scene.dialogs[0];
+  html+="<div class='box'><b>"+esc(d.name)+"</b><br>"+esc(d.text)+"</div>";
+ }
+ html+="</div></body></html>";
+ const win=window.open("","_blank");
+ if(win){win.document.open();win.document.write(html);win.document.close();}
+}
+
+function esc(v){
+ return String(v||"").replace(/[&<>"']/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+ });
+}
+
+function render(){
+ document.getElementById("projectName").value=project.name;
+ const list=document.getElementById("sceneList");
+ list.innerHTML="";
+ project.scenes.forEach((s,i)=>{
+  const el=document.createElement("div");
+  el.className="scene"+(i===currentScene?" active":"");
+  el.innerHTML=esc(s.title)+"<small>"+s.dialogs.length+" diálogo(s)</small>";
+  el.onclick=()=>{currentScene=i;render()};
+  list.appendChild(el);
+ });
+
+ const scene=project.scenes[currentScene];
+ if(!scene)return;
+
+ let editor="<div class='card'><h2>"+esc(scene.title)+"</h2>";
+ editor+="<div class='preview' style='background-image:url(\""+esc(scene.background)+"\")'>";
+ if(scene.characters.length)editor+="<img class='character' src='"+esc(scene.characters[0])+"'>";
+ if(scene.dialogs.length){
+  const d=scene.dialogs[scene.dialogs.length-1];
+  editor+="<div class='previewText'><b>"+esc(d.name)+"</b><br>"+esc(d.text)+"</div>";
+ }
+ editor+="</div></div>";
+
+ editor+="<div class='card'><h3>Diálogos</h3>";
+ if(!scene.dialogs.length)editor+="<div class='empty'>Nenhum diálogo ainda.<br>Use o botão + Diálogo.</div>";
+ scene.dialogs.forEach((d,i)=>{
+  editor+="<div class='dialog'><b>"+esc(d.name)+"</b><br>"+esc(d.text)+"<br><button style='margin-top:8px;background:#b91c1c' onclick='removeDialogue("+i+")'>Excluir</button></div>";
+ });
+ editor+="</div>";
+ document.getElementById("editorContent").innerHTML=editor;
+
+ let insp="<label>Título da cena</label><input value='"+esc(scene.title)+"' onchange='updateSceneTitle(this.value)'>";
+ insp+="<hr><h3>Personagens</h3>";
+ if(!scene.characters.length)insp+="<p class='empty'>Nenhum personagem.</p>";
+ scene.characters.forEach((c,i)=>{
+  insp+="<div class='dialog'>Personagem "+(i+1)+"<br><button style='margin-top:8px;background:#b91c1c' onclick='removeCharacter("+i+")'>Excluir</button></div>";
+ });
+ insp+="<hr><h3>Ajuda rápida</h3><p>1. Crie uma cena.<br>2. Adicione um fundo.<br>3. Adicione personagens.<br>4. Adicione os diálogos.<br>5. Toque em Testar.</p>";
+ document.getElementById("inspectorContent").innerHTML=insp;
+}
+
+loadProject();
+</script>
+</body>
+</html>
